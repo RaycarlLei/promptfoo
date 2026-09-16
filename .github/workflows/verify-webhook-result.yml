@@ -1,0 +1,37 @@
+name: Verify webhook assertion results
+
+on:
+  push:
+    branches: [ci/verify-webhook-result]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PROMPTFOO_DISABLE_TELEMETRY: 'true'
+      PROMPTFOO_DISABLE_REMOTE_GENERATION: 'true'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: 098b12f058a1ca185191869bb6b2d16e2211158c
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '24.21.0'
+      - name: Verify contribution and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = "098b12f058a1ca185191869bb6b2d16e2211158c"
+          node --version
+          npm --version
+      - name: Install locked dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+      - name: Check contribution formatting
+        run: npx --no-install @biomejs/biome check src/assertions/webhook.ts test/assertions/runAssertion.test.ts
+      - name: Check repository types
+        run: npm run tsc
+      - name: Test assertions and evaluator integration
+        run: npm test -- test/assertions/runAssertion.test.ts test/assertions/runAssertions.test.ts test/assertions/assertionsResult.test.ts test/evaluator/assertions.test.ts --maxWorkers=2
